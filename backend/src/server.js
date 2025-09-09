@@ -15,7 +15,7 @@ const app = express()
 const PORT = process.env.PORT ? Number(process.env.PORT) : 4001
 const corsOrigin =
   process.env.CORS_ORIGIN ||
-  'https://refaelsite.netlify.app/' // הפרונט הדיפולטי
+  'https://refaelsite.netlify.app' // הפרונט הדיפולטי
 
 app.use(cors({ origin: corsOrigin, credentials: true }))
 app.use(express.json({ limit: '10mb' }))
