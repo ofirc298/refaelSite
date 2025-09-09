@@ -1,9 +1,22 @@
 'use client'
 
+export async function generateStaticParams() {
+  const API = process.env.NEXT_PUBLIC_API_BASE || 'http://localhost:4001/api';
+  try {
+    const res = await fetch(`${API}/products`, { cache: 'no-store' });
+    const data = await res.json().catch(() => ({}));
+    const items = data?.items || data || [];
+    return items.map(p => ({ id: String(p.id) }));
+  } catch (e) {
+    return [];
+  }
+}
+
 import { useEffect, useState } from 'react'
 import { useParams } from 'next/navigation'
 import Link from 'next/link'
 import { API, fetchJSON } from '../../../lib/api'
+
 
 const API_ORIGIN = API.replace(/\/api$/, '')
 const asURL = (u) => (u && !/^https?:\/\//.test(u)) ? (API_ORIGIN + u) : u
