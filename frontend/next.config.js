@@ -1,7 +1,7 @@
-/** Next.js config – מותאם ל-Netlify Export עבור פרויקט REFAEL */
+/** @type {import('next').NextConfig} */
 const nextConfig = {
-  output: 'export',             // יוצר תיקיית out/ לצורך פרסום סטטי
-  images: { unoptimized: true },// תמיכה ב-<Image/> בזמן export
+  output: 'export',              
+  images: { unoptimized: true }, 
   trailingSlash: false
 };
 module.exports = nextConfig;

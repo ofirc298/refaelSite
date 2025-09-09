@@ -1,8 +1,7 @@
-# netlify.toml – קובץ קונפיג לשורש הריפו (לא בתוך frontend)
 [build]
   base    = "frontend"
   command = "npm run build"
-  publish = "out"
+  publish = "out"           # יחסי ל-base => frontend/out
 
 [build.environment]
   NODE_VERSION = "20"
