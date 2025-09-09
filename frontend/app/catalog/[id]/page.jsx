@@ -1,5 +1,3 @@
-'use client'
-
 export async function generateStaticParams() {
   const API = process.env.NEXT_PUBLIC_API_BASE || 'http://localhost:4001/api';
   try {
