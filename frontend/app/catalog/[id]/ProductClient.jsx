@@ -2,10 +2,8 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { API, fetchJSON } from "../../../lib/api";
+import { API, fetchJSON, normalizeImage } from "../../../lib/api";
 
-const API_ORIGIN = API.replace(/\/api$/, "");
-const asURL = (u) => (u && !/^https?:\/\//.test(u) ? API_ORIGIN + u : u);
 
 const looksLikeProduct = (x) =>
   x && typeof x === "object" && !Array.isArray(x) &&
@@ -90,7 +88,7 @@ export default function ProductClient({ id }) {
 
       <section className="card">
         <div className="gallery">
-          {p.image ? <img src={asURL(p.image)} alt="" /> : <div className="noimg">תמונה</div>}
+          {p.image ? <img src={normalizeImage(p.image)} alt="" /> : <div className="noimg">תמונה</div>}
         </div>
 
         <div className="info">

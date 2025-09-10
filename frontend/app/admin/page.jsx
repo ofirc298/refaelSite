@@ -4,8 +4,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { API, adminFetch, fetchJSON, adminUpload } from '../../lib/api'
 import { useRouter } from 'next/navigation'
 
-const API_ORIGIN = API.replace(/\/api$/, '')
-const asURL = (u) => (u && !/^https?:\/\//.test(u)) ? (API_ORIGIN + u) : u
+import { normalizeImage } from '../../lib/api'
 
 const emptyForm = {
   id: '',
@@ -257,7 +256,7 @@ export default function AdminPage() {
             <div className="imgRow">
               <input ref={fileRef} type="file" accept="image/*" onChange={onSelectFile} />
               <div className="imgPreview">
-                {form.image ? <img src={asURL(form.image)} alt="preview" /> : <div className="noimg">אין תצוגה</div>}
+                {form.image ? <img src={normalizeImage(form.image)} alt="preview" /> : <div className="noimg">אין תצוגה</div>}
                 {uploading && <div className="loader">מעלה…</div>}
               </div>
             </div>

@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
-import { fetchJSON } from '../lib/api'
+import { fetchJSON, normalizeImage } from '../lib/api'
 
 export default function Catalog() {
   const [items, setItems] = useState([])
@@ -122,7 +122,7 @@ export default function Catalog() {
         {view.map(p => (
           <article key={p.id} className="card">
             <Link href={`/catalog/${encodeURIComponent(p.id)}`} className="thumbLink">
-              <div className="thumb">{p.image ? <img src={p.image} alt="" /> : <div className="noimg">תמונה</div>}</div>
+              <div className="thumb">{p.image ? <img src={normalizeImage(p.image)} alt="" /> : <div className="noimg">תמונה</div>}</div>
             </Link>
             <div className="body">
               <div className="titleRow">
