@@ -1,4 +1,23 @@
-export const API = (process.env.NEXT_PUBLIC_API?.replace(/\/$/, '') || 'http://localhost:4001/api');
+// frontend/lib/api.js
+
+export const API = (process.env.NEXT_PUBLIC_API || 'http://localhost:4001/api')
+  .trim()
+  .replace(/\/$/, ''); 
+
+export const API_ORIGIN = API.replace(/\/api$/, '');
+
+export function asURL(u) {
+  if (!u) return '';
+  if (/^https?:\/\//i.test(u)) return u;   
+  const path = u.startsWith('/') ? u : `/${u}`;
+  return API_ORIGIN + path;             
+}
+
+export function normalizeImage(u) {
+  if (!u) return '';
+  u = u.replace(/^https?:\/\/localhost:\d+/i, API_ORIGIN);
+  return asURL(u);
+}
 
 export async function fetchJSON(path, init = {}) {
   const res = await fetch(API + path, {
