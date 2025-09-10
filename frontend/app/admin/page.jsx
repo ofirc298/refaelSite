@@ -1,8 +1,9 @@
 'use client'
 
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { API, adminFetch, fetchJSON, adminUpload } from '../../lib/api'
 import { useRouter } from 'next/navigation'
-import { API, adminFetch, fetchJSON, adminUpload, normalizeImage } from '../../lib/api'
+import { normalizeImage } from '../../lib/api'
 
 const emptyForm = {
   id: '',
@@ -11,37 +12,48 @@ const emptyForm = {
   price: 0,
   category: '',
   image: '',
-  inStock: true,
+  inStock: true,   // נשתמש כשדה "פעיל" להצגה בקטלוג
   stockQty: 0,
 }
 
 export default function AdminPage() {
   const router = useRouter()
+  const [boot,setBoot]=useState('loading')
 
-  // redirect אם אין טוקן
   useEffect(() => {
     const t = typeof window !== 'undefined' ? localStorage.getItem('admin_token') : ''
-    if (!t) router.replace('/admin/login')
+    if (!t) { router.replace('/admin/login'); return }
+    (async () => {
+      try { await adminFetch('/admin/verify'); setBoot('ok') }
+      catch { try { localStorage.removeItem('admin_token') } catch {}; router.replace('/admin/login') }
+    })()
   }, [router])
 
   const [items, setItems] = useState([])
   const [cats, setCats] = useState([])
   const [form, setForm] = useState(emptyForm)
   const [isEditing, setIsEditing] = useState(false)
-  const [msg, setMsg] = useState(null)
+  const [msg, setMsg] = useState(null) // {type, text}
   const [filter, setFilter] = useState({ q: '', category: '' })
   const [uploading, setUploading] = useState(false)
+  const [triedSubmit, setTriedSubmit] = useState(false)
+  const [selected, setSelected] = useState(new Set()) // בחירה מרובה
   const fileRef = useRef(null)
+  const msgRef = useRef(null)
 
-  // טעינת נתונים
+  function showMessage(next){
+    setMsg(next)
+    setTimeout(()=>{ try { msgRef.current?.scrollIntoView({ behavior:'smooth', block:'start' }) } catch {} }, 0)
+    if(next?.type === 'success'){
+      setTimeout(()=>{ setMsg(m => (m===next ? null : m)) }, 3500)
+    }
+  }
+
   async function loadProducts() {
-    setMsg(null)
     try {
       const { items } = await adminFetch('/admin/products')
       setItems(items || [])
-    } catch (e) {
-      setMsg({ type: 'error', text: 'שגיאה בטעינת מוצרים: ' + (e?.message || e) })
-    }
+    } catch (e) { showMessage({ type: 'error', text: 'שגיאה בטעינת מוצרים: ' + (e?.message || e) }) }
   }
   async function loadCats() {
     try {
@@ -49,9 +61,8 @@ export default function AdminPage() {
       setCats(categories || [])
     } catch {}
   }
-  useEffect(() => { loadProducts(); loadCats() }, [])
+  useEffect(() => { if(boot==='ok'){ loadProducts(); loadCats() } }, [boot])
 
-  // סינון
   const view = useMemo(() => {
     let v = items.slice()
     if (filter.q) {
@@ -66,7 +77,18 @@ export default function AdminPage() {
     return v
   }, [items, filter])
 
-  // טופס
+  function toggleSelected(id){
+    setSelected(prev => {
+      const n = new Set(prev)
+      if(n.has(id)) n.delete(id); else n.add(id)
+      return n
+    })
+  }
+  function selectAllVisible(){
+    setSelected(new Set(view.map(p=>p.id)))
+  }
+  function clearSelection(){ setSelected(new Set()) }
+
   function edit(p) {
     setForm({
       id: p.id,
@@ -74,105 +96,131 @@ export default function AdminPage() {
       description: p.description || '',
       price: p.price,
       category: p.category || '',
-      image: p.image || '',        // נשמר יחסית DB: '/uploads/...'
+      image: p.image || '',
       inStock: !!p.inStock,
       stockQty: p.stockQty ?? 0,
     })
-    setIsEditing(true); setMsg(null)
+    setIsEditing(true)
+    setTriedSubmit(false)
+    setMsg(null)
     try { scrollTo({ top: 0, behavior: 'smooth' }) } catch {}
   }
-  function reset() {
-    setForm(emptyForm); setIsEditing(false); setMsg(null)
+
+  function reset(keepMsg=false) {
+    setForm(emptyForm); setIsEditing(false); setTriedSubmit(false)
     if (fileRef.current) fileRef.current.value = ''
+    if (!keepMsg) setMsg(null)
   }
 
   async function create() {
+    setTriedSubmit(true)
+    if (!form.id || !form.title) {
+      showMessage({ type: 'error', text: 'נא למלא מזהה (ID) ושם מוצר' })
+      return
+    }
     try {
-      if (!form.id || !form.title)
-        return setMsg({ type: 'error', text: 'יש למלא מזהה (ID) ושם מוצר' })
       await adminFetch('/admin/products', {
         method: 'POST',
-        body: { ...form, price: Number(form.price), stockQty: Number(form.stockQty) },
+        body: { ...form, price: Number(form.price ?? 0), stockQty: Number(form.stockQty ?? 0) },
       })
-      setMsg({ type: 'success', text: 'נשמר בהצלחה' })
-      reset(); loadProducts()
-    } catch (e) { setMsg({ type: 'error', text: String(e?.message || e) }) }
+      showMessage({ type: 'success', text: 'המוצר נוצר ונשמר בהצלחה ✅' })
+      reset(true); loadProducts(); loadCats()
+    } catch (e) { showMessage({ type: 'error', text: String(e?.message || e) }) }
   }
+
   async function update(id) {
+    setTriedSubmit(true)
+    if (!form.title) {
+      showMessage({ type: 'error', text: 'נא למלא שם מוצר' })
+      return
+    }
     try {
       await adminFetch(`/admin/products/${id}`, {
         method: 'PUT',
-        body: { ...form, price: Number(form.price), stockQty: Number(form.stockQty) },
+        body: { ...form, price: Number(form.price ?? 0), stockQty: Number(form.stockQty ?? 0) },
       })
-      setMsg({ type: 'success', text: 'עודכן בהצלחה' })
-      reset(); loadProducts()
-    } catch (e) { setMsg({ type: 'error', text: String(e?.message || e) }) }
+      showMessage({ type: 'success', text: 'המוצר עודכן בהצלחה ✍️' })
+      reset(true); loadProducts(); loadCats()
+    } catch (e) { showMessage({ type: 'error', text: String(e?.message || e) }) }
   }
+
   async function remove(id) {
     if (!confirm('למחוק מוצר זה?')) return
     try {
       await adminFetch(`/admin/products/${id}`, { method: 'DELETE' })
-      setMsg({ type: 'success', text: 'נמחק' })
-      if (isEditing && form.id === id) reset()
-      loadProducts()
-    } catch (e) {
-      setMsg({ type: 'error', text: String(e?.message || e) })
-    }
+      showMessage({ type: 'success', text: 'המוצר נמחק בהצלחה 🗑️' })
+      if (isEditing && form.id === id) reset(true)
+      loadProducts(); loadCats()
+    } catch (e) { showMessage({ type: 'error', text: String(e?.message || e) }) }
   }
 
-  // העלאת תמונה
-  async function uploadImage(file) {
-    if (!file) return
-    if (!/^image\//.test(file.type)) {
-      setMsg({ type: 'error', text: 'יש לבחור קובץ תמונה' })
-      return
-    }
-    if (file.size > 8 * 1024 * 1024) {
-      setMsg({ type: 'error', text: 'קובץ גדול מדי (מקס׳ 8MB)' })
-      return
-    }
+  // פעולות מרובות
+  async function bulkDelete(){
+    if(selected.size===0) return
+    if(!confirm(`למחוק ${selected.size} פריטים שנבחרו?`)) return
+    try{
+      await Promise.all(Array.from(selected).map(id => adminFetch(`/admin/products/${id}`, { method:'DELETE' })))
+      showMessage({ type:'success', text:`נמחקו ${selected.size} פריטים` })
+      clearSelection()
+      loadProducts()
+    }catch(e){ showMessage({ type:'error', text:String(e?.message || e) }) }
+  }
+  async function bulkSetActive(active){
+    if(selected.size===0) return
+    try{
+      const map = new Map(items.map(p=>[p.id,p]))
+      await Promise.all(Array.from(selected).map(id => {
+        const p = map.get(id) || { id }
+        return adminFetch(`/admin/products/${id}`, {
+          method:'PUT',
+          body: { ...p, inStock: !!active, price:Number(p.price||0), stockQty:Number(p.stockQty||0) }
+        })
+      }))
+      showMessage({ type:'success', text: active ? 'הפריטים הופעלו והם מוצגים בקטלוג' : 'הפריטים הוסתרו מהקטלוג' })
+      clearSelection()
+      loadProducts()
+    }catch(e){ showMessage({ type:'error', text:String(e?.message || e) }) }
+  }
+
+  async function onSelectFile(e) {
+    const file = e.target.files?.[0]; if (!file) return
+    if (!/^image\//.test(file.type)) { showMessage({ type: 'error', text: 'יש לבחור קובץ תמונה' }); return }
+    if (file.size > 8 * 1024 * 1024) { showMessage({ type: 'error', text: 'קובץ גדול מדי (מקס׳ 8MB)' }); return }
     setUploading(true)
     try {
-      const fd = new FormData()
-      fd.append('image', file) // multer.single('image')
+      const fd = new FormData(); fd.append('image', file)
       const data = await adminUpload('/admin/upload', fd)
-      const url = data?.url || data?.path            // בד״כ '/uploads/xxx.jpg'
-      if (url) {
-        setForm(f => ({ ...f, image: url }))         // שומרים יחסית ל-DB
-        setMsg({ type: 'success', text: 'התמונה הועלתה' })
-      } else {
-        setMsg({ type: 'error', text: 'העלאה הצליחה אך לא הוחזר נתיב תמונה' })
-      }
-    } catch (e) {
-      setMsg({ type: 'error', text: 'שגיאה בהעלאה: ' + (e?.message || e) })
-    } finally {
-      setUploading(false)
-    }
+      const url = data?.url || data?.path
+      // נשמור יחסי, ונציג תמיד עם normalizeImage
+      if (url) { setForm(f => ({ ...f, image: url })); showMessage({ type: 'success', text: 'התמונה הועלתה' }) }
+      else { showMessage({ type: 'error', text: 'העלאה הצליחה אך לא הוחזר נתיב תמונה' }) }
+    } catch (e) { showMessage({ type: 'error', text: 'שגיאה בהעלאה: ' + (e?.message || e) }) }
+    finally { setUploading(false); e.target.value = '' }
   }
-  function onSelectFile(e) {
-    const f = e.target.files?.[0]; if (!f) return
-    uploadImage(f)
-    e.target.value = '' // לאפשר לבחור את אותו קובץ שוב
+
+  if(boot!=='ok'){
+    return <div dir="rtl" style={{padding:20,opacity:.7}}>טוען…</div>
   }
 
   return (
     <div dir="rtl" className="page">
-      {/* ===== טופס מעל הרשימה ===== */}
       <aside className="panel">
         <div className="panel-header">
           <h2>{isEditing ? 'עריכת מוצר' : 'מוצר חדש'}</h2>
-          {isEditing && <button className="btn ghost" onClick={reset}>ניקוי</button>}
+          {isEditing && <button className="btn ghost" onClick={()=>reset()}>ניקוי</button>}
         </div>
 
         <div className="form">
           <div className="row">
             <label>מזהה (ID)</label>
-            <input value={form.id} onChange={e => setForm({ ...form, id: e.target.value })} disabled={isEditing} />
+            <input value={form.id} onChange={e => setForm({ ...form, id: e.target.value })} disabled={isEditing}
+                   className={triedSubmit && !isEditing && !form.id ? 'error' : ''} />
           </div>
 
           <div className="row">
             <label>שם מוצר</label>
-            <input value={form.title} onChange={e => setForm({ ...form, title: e.target.value })} />
+            <input value={form.title} onChange={e => setForm({ ...form, title: e.target.value })}
+                   className={triedSubmit && !form.title ? 'error' : ''} />
           </div>
 
           <div className="row">
@@ -182,15 +230,9 @@ export default function AdminPage() {
 
           <div className="row">
             <label>קטגוריה</label>
-            <input
-              list="catsList"
-              placeholder="בחר או כתוב קטגוריה…"
-              value={form.category}
-              onChange={e => setForm({ ...form, category: e.target.value })}
-            />
-            <datalist id="catsList">
-              {cats.map(c => <option key={c} value={c} />)}
-            </datalist>
+            <input list="catsList" placeholder="בחר או כתוב קטגוריה…" value={form.category}
+                   onChange={e => setForm({ ...form, category: e.target.value })} />
+            <datalist id="catsList">{cats.map(c => <option key={c} value={c} />)}</datalist>
           </div>
 
           <div className="row">
@@ -201,7 +243,7 @@ export default function AdminPage() {
           <div className="row cols">
             <label className="check">
               <input type="checkbox" checked={form.inStock} onChange={e => setForm({ ...form, inStock: e.target.checked })} />
-              <span>במלאי</span>
+              <span>במלאי / פעיל</span>
             </label>
             <div>
               <label>כמות במלאי</label>
@@ -224,21 +266,27 @@ export default function AdminPage() {
             {!isEditing && <button className="btn primary" onClick={create}>שמור חדש</button>}
             {isEditing && <>
               <button className="btn primary" onClick={() => update(form.id)}>עדכון</button>
-              <button className="btn" onClick={reset}>ביטול</button>
+              <button className="btn" onClick={()=>reset()}>ביטול</button>
             </>}
           </div>
 
-          {msg && <div className={`alert ${msg.type}`}>{msg.text}</div>}
+          {msg && <div ref={msgRef} className={`alert ${msg.type}`}>{msg.text}</div>}
         </div>
       </aside>
 
-      {/* ===== סינון + רשימה ===== */}
+      {/* כלי בחירה ופעולות מרובות */}
+      <div className="bulkbar">
+        <button className="btn" onClick={selectAllVisible}>בחר הכל (נראה)</button>
+        <button className="btn" onClick={clearSelection}>נקה בחירה</button>
+        <span className="muted">נבחרו: {selected.size}</span>
+        <div className="spacer" />
+        <button className="btn danger" onClick={bulkDelete} disabled={selected.size===0}>מחיקה נבחרים</button>
+        <button className="btn" onClick={()=>bulkSetActive(false)} disabled={selected.size===0}>הסתרה מהקטלוג</button>
+        <button className="btn" onClick={()=>bulkSetActive(true)} disabled={selected.size===0}>הפעלה להצגה</button>
+      </div>
+
       <div className="toolbar">
-        <input
-          placeholder="חיפוש לפי שם / תיאור / מזהה…"
-          value={filter.q}
-          onChange={e => setFilter({ ...filter, q: e.target.value })}
-        />
+        <input placeholder="חיפוש לפי שם / תיאור / מזהה…" value={filter.q} onChange={e => setFilter({ ...filter, q: e.target.value })} />
         <select value={filter.category} onChange={e => setFilter({ ...filter, category: e.target.value })}>
           <option value="">כל הקטגוריות</option>
           {cats.map(c => <option key={c} value={c}>{c}</option>)}
@@ -249,7 +297,12 @@ export default function AdminPage() {
       <section className="cards">
         {view.length === 0 && <div className="empty">לא נמצאו מוצרים</div>}
         {view.map(p => (
-          <article key={p.id} className="cardItem">
+          <article key={p.id} className={`cardItem ${selected.has(p.id)?'selected':''}`}>
+            <label className="pick">
+              <input type="checkbox" checked={selected.has(p.id)} onChange={()=>toggleSelected(p.id)} />
+              <span />
+            </label>
+
             <div className="thumbLarge">
               {p.image ? <img src={normalizeImage(p.image)} alt="" /> : <div className="noimg">תמונה</div>}
             </div>
@@ -261,9 +314,10 @@ export default function AdminPage() {
               </div>
               <div className="meta">
                 <span className="badge">{p.category || 'ללא קטגוריה'}</span>
-                <span className={`badge ${p.inStock ? 'ok' : 'bad'}`}>{p.inStock ? 'במלאי' : 'חסר'}</span>
+                <span className={`badge ${p.inStock ? 'ok' : 'bad'}`}>{p.inStock ? 'פעיל' : 'לא פעיל'}</span>
                 <span className="mono">כמות: {p.stockQty ?? 0}</span>
               </div>
+              {p.description && <p className="desc">{p.description}</p>}
             </div>
 
             <div className="actionsRow">
@@ -274,7 +328,6 @@ export default function AdminPage() {
         ))}
       </section>
 
-      {/* ===== STYLES ===== */}
       <style jsx>{`
         .page { padding:16px; max-width:1400px; margin:0 auto; display:flex; flex-direction:column; gap:12px; }
         .panel { background:#fff; border:1px solid #e5e7eb; border-radius:14px; box-shadow:0 1px 2px rgba(0,0,0,.03); }
@@ -284,6 +337,7 @@ export default function AdminPage() {
         .row.cols { display:grid; grid-template-columns: 1fr 1fr; gap:10px; }
         label { font-size:13px; color:#475569; }
         input, select, textarea { border:1px solid #e5e7eb; border-radius:10px; padding:10px 12px; font-size:14px; outline:none; background:#fff; }
+        input.error { border-color:#ef4444; background:#fff1f2; }
         textarea { resize:vertical; }
         .check { display:flex; align-items:center; gap:8px; padding-top:24px; }
         .imgRow { display:flex; align-items:center; gap:12px; }
@@ -291,24 +345,27 @@ export default function AdminPage() {
         .imgPreview img { width:100%; height:100%; object-fit:cover; display:block; }
         .noimg { width:100%; height:100%; display:flex; align-items:center; justify-content:center; color:#94a3b8; }
         .loader { position:absolute; inset:auto 6px 6px auto; background:#111827; color:#fff; font-size:12px; padding:2px 6px; border-radius:6px; }
-        .actions.sticky { position: sticky; bottom: 0; display:flex; gap:8px; padding:10px 12px;
-          background: linear-gradient(to top, #fff, rgba(255,255,255,0.9));
-          border-top:1px solid #eef2f7; border-radius:0 0 14px 14px;
-        }
+        .actions.sticky { position: sticky; bottom: 0; display:flex; gap:8px; padding:10px 12px; background: linear-gradient(to top, #fff, rgba(255,255,255,0.9)); border-top:1px solid #eef2f7; border-radius:0 0 14px 14px; }
         .btn { border:1px solid #e5e7eb; background:#fff; border-radius:10px; padding:8px 12px; cursor:pointer; font-size:14px; }
         .btn:hover { background:#f8fafc; }
         .btn.primary { background:#2563eb; color:#fff; border-color:#2563eb; }
         .btn.primary:hover { filter:brightness(.95); }
         .btn.danger { border-color:#ef4444; color:#ef4444; }
         .btn.ghost { background:transparent; }
-        .alert { margin-top:10px; padding:10px; border-radius:10px; border:1px solid #e5e7eb; }
+        .alert { margin:10px 0 0; padding:10px; border-radius:10px; border:1px solid #e5e7eb; }
         .alert.success { border-color:#22c55e; background:#ecfdf5; color:#065f46; }
         .alert.error { border-color:#ef4444; background:#fff1f2; color:#b91c1c; }
+        .bulkbar { display:flex; align-items:center; gap:8px; padding:10px 12px; border:1px solid #eef2f7; border-radius:12px; background:#fff; }
+        .bulkbar .spacer { flex:1 }
+        .muted { color:#64748b; font-size:13px; }
         .toolbar { display:flex; gap:8px; padding:12px; border:1px solid #eef2f7; border-radius:12px; background:#fff; }
         .toolbar input, .toolbar select { padding:10px 12px; border-radius:10px; border:1px solid #e5e7eb; }
         .cards { display:grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap:12px; }
-        .cardItem { background:#fff; border:1px solid #e5e7eb; border-radius:14px; display:flex; flex-direction:column; gap:10px; padding:10px; height: 340px; }
-        .thumbLarge { height:160px; width:100%; border-radius:12px; overflow:hidden; background:#f3f4f6; border:1px solid #e5e7eb; flex-shrink:0; }
+        .cardItem { position:relative; background:#fff; border:1px solid #e5e7eb; border-radius:14px; display:flex; flex-direction:column; gap:10px; padding:10px; min-height: 360px; }
+        .cardItem.selected { outline:2px solid #2563eb; outline-offset:-2px; }
+        .pick { position:absolute; top:10px; left:10px; display:flex; align-items:center; gap:6px; }
+        .pick input { width:18px; height:18px; }
+        .thumbLarge { height:150px; width:100%; border-radius:12px; overflow:hidden; background:#f3f4f6; border:1px solid #e5e7eb; flex-shrink:0; }
         .thumbLarge img { width:100%; height:100%; object-fit:cover; display:block; }
         .body { display:flex; flex-direction:column; gap:6px; flex:1; }
         .titleRow { display:flex; align-items:center; justify-content:space-between; gap:10px; }
@@ -320,6 +377,8 @@ export default function AdminPage() {
         .badge.bad { background:#fff1f2; border-color:#ef4444; color:#b91c1c; }
         .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Courier New', monospace; }
         .actionsRow { display:flex; gap:8px; margin-top:auto; }
+        .desc { font-size:13px; color:#475569; margin:6px 0 0; overflow:hidden; text-overflow:ellipsis;
+                display:-webkit-box; -webkit-line-clamp:3; -webkit-box-orient:vertical; }
         .empty { padding:28px; text-align:center; color:#64748b; border:1px dashed #e5e7eb; border-radius:12px; background:#fff; }
       `}</style>
     </div>
