@@ -1,81 +1,102 @@
 'use client';
-import useProducts from '../../lib/useProducts';
 
-// This page keeps markup minimal and neutral to avoid CSS changes.
-// Replace className values with your existing class names if needed.
-// Layout: grid area for products (left) + sidebar filters (right, RTL).
+import { useEffect, useMemo, useState } from 'react';
+import ProductGrid from '@/components/ProductGrid';
+import { fetchJSON } from '@/lib/api';
 
 export default function CatalogPage() {
-  const {
-    items, categories, loading, error,
-    q, setQ, cat, setCat, sort, setSort, priceMin, setPriceMin, priceMax, setPriceMax, clearFilters,
-  } = useProducts();
+  const [items, setItems] = useState(null); // null = not loaded yet
+  const [categories, setCategories] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  // Filters (simple example; keep existing UI if you have one)
+  const [q, setQ] = useState('');
+  const [cat, setCat] = useState('');
+  const [sort, setSort] = useState('price-asc');
+
+  // Warm up backend (fire & forget)
+  useEffect(() => {
+    fetchJSON('/health').catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      setLoading(true);
+      setError(null);
+      try {
+        const [prodsResp, catsResp] = await Promise.all([
+          fetchJSON('/products'),
+          fetchJSON('/products/categories').catch(() => ({ categories: [] }))
+        ]);
+        if (cancelled) return;
+        const prods = (prodsResp?.items || prodsResp || []).filter(Boolean);
+        setItems(prods);
+        const cats = Array.from(new Set([
+          ...(catsResp?.categories || []),
+          ...prods.map(p => p.category).filter(Boolean)
+        ])).sort();
+        setCategories(cats);
+      } catch (e) {
+        if (cancelled) return;
+        setError('שגיאה בטעינת מוצרים. נסה לרענן עוד רגע.');
+        setItems([]);
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
+
+  const filtered = useMemo(() => {
+    if (!items) return null;
+    let list = [...items];
+    if (q) {
+      const ql = q.toLowerCase();
+      list = list.filter(p =>
+        (p.title || p.name || '').toLowerCase().includes(ql) ||
+        (p.description || '').toLowerCase().includes(ql)
+      );
+    }
+    if (cat) {
+      list = list.filter(p => (p.category || '') === cat);
+    }
+    if (sort === 'price-asc') list.sort((a,b)=>(a.price ?? 0)-(b.price ?? 0));
+    if (sort === 'price-desc') list.sort((a,b)=>(b.price ?? 0)-(a.price ?? 0));
+    return list;
+  }, [items, q, cat, sort]);
 
   return (
-    <main dir="rtl" className="catalog-root">
-      <h1 className="catalog-title">קטלוג מוצרים</h1>
+    <main className="max-w-6xl mx-auto px-4 py-6 rtl text-right">
+      <h1 className="text-2xl font-bold mb-4">קטלוג מוצרים</h1>
 
-      <div className="catalog-layout">
-        {/* MAIN GRID */}
-        <section className="catalog-grid">
-          {loading && <div className="catalog-empty">טוען מוצרים…</div>}
-          {error && <div className="catalog-error">{error}</div>}
-          {!loading && !error && (!items || items.length === 0) && (
-            <div className="catalog-empty">לא נמצאו מוצרים</div>
-          )}
-          {!loading && !error && items?.map((p) => (
-            <article key={p.id || p._id || p.sku || p.title} className="product-card">
-              {p.image || p.imgUrl ? (
-                <img src={p.image || p.imgUrl} alt={p.title || p.name} loading="lazy" decoding="async" />
-              ) : null}
-              <h3 className="product-title">{p.title || p.name}</h3>
-              {p.category && <div className="product-category">קטגוריה: {p.category}</div>}
-              <div className="product-price">{typeof p.price === 'number' ? `${p.price} ₪` : p.price}</div>
-            </article>
-          ))}
-        </section>
-
-        {/* SIDEBAR FILTERS (on the right) */}
-        <aside className="catalog-sidebar">
-          <div className="filter-title">סינון</div>
-
-          <div className="filter-block">
-            <label>חיפוש</label>
-            <input
-              className="filter-input"
-              placeholder="...תיאור / מחבר / שם"
-              value={q}
-              onChange={e => setQ(e.target.value)}
-            />
-          </div>
-
-          <div className="filter-block">
-            <label>מיון</label>
-            <select className="filter-select" value={sort} onChange={e => setSort(e.target.value)}>
-              <option value="price-asc">מחיר ↑ (נמוך→גבוה)</option>
-              <option value="price-desc">מחיר ↓ (גבוה→נמוך)</option>
-            </select>
-          </div>
-
-          <div className="filter-block">
-            <label>קטגוריה</label>
-            <select className="filter-select" value={cat} onChange={e => setCat(e.target.value)}>
-              <option value="">הכל</option>
-              {categories.map(c => <option key={c} value={c}>{c}</option>)}
-            </select>
-          </div>
-
-          <div className="filter-block">
-            <label>טווח מחיר</label>
-            <div className="filter-price">
-              <input className="filter-input" placeholder="מינ'" value={priceMin} onChange={e => setPriceMin(e.target.value)} />
-              <input className="filter-input" placeholder="מקס'" value={priceMax} onChange={e => setPriceMax(e.target.value)} />
-            </div>
-          </div>
-
-          <button type="button" className="filter-clear" onClick={clearFilters}>ניקוי</button>
-        </aside>
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+        <input
+          className="md:col-span-2 border rounded-md px-3 py-2"
+          placeholder="חיפוש לפי שם / תיאור…"
+          value={q}
+          onChange={e => setQ(e.target.value)}
+        />
+        <select
+          className="border rounded-md px-3 py-2"
+          value={sort}
+          onChange={e => setSort(e.target.value)}
+        >
+          <option value="price-asc">מחיר ↑ (נמוך→גבוה)</option>
+          <option value="price-desc">מחיר ↓ (גבוה→נמוך)</option>
+        </select>
+        <select
+          className="border rounded-md px-3 py-2"
+          value={cat}
+          onChange={e => setCat(e.target.value)}
+        >
+          <option value="">כל הקטגוריות</option>
+          {categories.map(c => <option key={c} value={c}>{c}</option>)}
+        </select>
       </div>
+
+      <ProductGrid loading={loading} error={error} items={filtered} />
     </main>
   );
 }

@@ -1,10 +1,3 @@
-/* Optional helpers */
+/* Minimal styles if you're not using Tailwind; safe to include anyway */
 .rtl { direction: rtl; }
 .ltr { direction: ltr; }
-.aspect-\[4\/3\] { aspect-ratio: 4 / 3; }
-.line-clamp-2 {
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-}
