@@ -1,6 +1,5 @@
 // lib/cache.js
 const LS = typeof window !== 'undefined' ? window.localStorage : null;
-
 export function getCache(key) {
   if (!LS) return null;
   try {
@@ -9,21 +8,9 @@ export function getCache(key) {
     const { v, t, ttl } = JSON.parse(raw);
     if (ttl && Date.now() - t > ttl) return null;
     return v;
-  } catch {
-    return null;
-  }
+  } catch { return null; }
 }
-
-export function setCache(key, value, ttlMs = 300000 /* 5m */) {
+export function setCache(key, value, ttlMs = 300000) {
   if (!LS) return;
-  try {
-    LS.setItem(key, JSON.stringify({ v: value, t: Date.now(), ttl: ttlMs }));
-  } catch {}
-}
-
-export function delCache(key) {
-  if (!LS) return;
-  try {
-    LS.removeItem(key);
-  } catch {}
+  try { LS.setItem(key, JSON.stringify({ v: value, t: Date.now(), ttl: ttlMs })); } catch {}
 }
