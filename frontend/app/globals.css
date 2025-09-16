@@ -1,3 +1,139 @@
-/* Minimal styles if you're not using Tailwind; safe to include anyway */
-.rtl { direction: rtl; }
-.ltr { direction: ltr; }
+:root{
+  --bg:#f6f7fb; --card:#ffffff; --text:#0f172a; --muted:#5f6b7a; --accent:#2563eb; --accent-contrast:#fff;
+  --border:#e5e7eb; --shadow:0 1px 2px rgba(0,0,0,.06);
+  --input-bg:#fff; --input-border:#d1d5db; --input-text:#111418; --chip-bg:#eff6ff;
+  --radius:12px;
+  --fs-xs:12px; --fs-sm:14px; --fs-md:16px; --fs-lg:18px; --fs-xl:22px;
+}
+[data-theme="dark"]{
+  --bg:#0b1220; --card:#0f172a; --text:#e5e7eb; --muted:#9aa4b2; --accent:#60a5fa; --accent-contrast:#081324;
+  --border:#1e293b; --shadow:0 1px 2px rgba(0,0,0,.5);
+  --input-bg:#0b1220; --input-border:#203049; --input-text:#e5e7eb; --chip-bg:#11233d;
+}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{margin:0;background:var(--bg);color:var(--text);font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial;font-size:var(--fs-md)}
+h1{font-size:28px;margin:0} h2{font-size:22px;margin:0 0 8px} h3{font-size:18px;margin:0 0 8px}
+small{font-size:var(--fs-xs);color:var(--muted)}
+a{color:var(--accent);text-decoration:none}
+.container{max-width:1200px;margin:0 auto;padding:16px}
+.header{position:sticky;top:0;background:var(--bg);border-bottom:1px solid var(--border);z-index:10}
+.nav{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:10px 0}
+.brand{display:flex;align-items:center;gap:10px;font-weight:800;font-size:20px;color:var(--text)}
+.card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);box-shadow:var(--shadow)}
+.grid{display:grid;gap:12px}
+.catalog-layout{grid-template-columns:260px 1fr}
+@media (max-width: 900px){ .catalog-layout{grid-template-columns:1fr} }
+.sidebar{position:sticky;top:72px;height:fit-content;padding:12px}
+.filters label{display:block;margin-bottom:6px;font-size:var(--fs-sm);color:var(--muted)}
+.filters input, .filters select, .form input, .form textarea, .form select{
+  width:100%;padding:10px;border:1px solid var(--input-border);border-radius:10px;
+  background:var(--input-bg);color:var(--input-text);margin-bottom:10px;outline:none;
+}
+.filters hr{border:none;border-top:1px solid var(--border);margin:12px 0}
+.btn{padding:10px 14px;border-radius:10px;border:1px solid var(--border);background:var(--card);cursor:pointer;color:var(--text)}
+.btn:hover{filter:brightness(1.02)}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-contrast)}
+.product{padding:12px}
+.product .img{height:180px;background:#eaeef5;border-radius:8px;margin-bottom:8px;display:flex;align-items:center;justify-content:center;overflow:hidden}
+[data-theme="dark"] .product .img{background:#0b1220}
+.product .img img{max-width:100%;max-height:100%}
+.cart{padding:12px}
+.table{width:100%;border-collapse:collapse}
+.table th,.table td{padding:8px;border-bottom:1px solid var(--border);text-align:start}
+.footer{margin-top:24px;padding:12px;color:var(--muted);font-size:var(--fs-sm);text-align:center}
+.toggle{border:1px solid var(--border);border-radius:8px;padding:6px 10px;background:var(--card)}
+.badge{display:inline-flex;align-items:center;gap:6px;padding:6px 10px;border-radius:999px;background:var(--chip-bg);color:var(--text);border:1px solid var(--border)}
+.toast{position:fixed;top:12px;right:12px;background:var(--card);border:1px solid var(--border);padding:10px 14px;border-radius:10px;box-shadow:var(--shadow)}
+.check{display:flex;align-items:center;gap:8px}
+.filters input[type="checkbox"], .form input[type="checkbox"]{ width:auto; display:inline-block }
+
+.catbar{display:flex;gap:8px;overflow:auto;padding:8px 0 0}
+.catbar .chip{white-space:nowrap;padding:8px 12px;border:1px solid var(--border);border-radius:999px;background:var(--card);cursor:pointer}
+.catbar .chip.active{background:var(--accent);border-color:var(--accent);color:var(--accent-contrast)}
+
+/* responsive two-column grids */
+.two-col{ display:grid; grid-template-columns:1fr 1fr; gap:16px }
+@media (max-width: 900px){ .two-col{ grid-template-columns:1fr } }
+
+/* equal product card heights */
+.product{ height: 420px; display:flex; flex-direction:column }
+.product .btn{ margin-top:auto }
+
+/* admin form alignment tweaks */
+.field-row{ display:grid; grid-template-columns: 1fr 1fr; gap:8px }
+@media (max-width: 900px){ .field-row{ grid-template-columns:1fr } }
+
+/* Clamp product description to two lines */
+.product .desc{
+  display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical;
+  overflow:hidden; text-overflow:ellipsis;
+}
+
+/* Center the 'in-stock only' checkbox with the label text */
+.check{ display:flex; align-items:center; gap:8px; line-height:1.2 }
+.check input{ width:18px; height:18px; vertical-align:middle }
+
+/* On mobile, let sidebar scroll within 60vh and be collapsible */
+@media (max-width: 900px){
+  .sidebar{ max-height:60vh; overflow:auto }
+}
+
+
+/* Precise center alignment for checkboxes with text (Windows-friendly) */
+.check{ display:inline-flex; align-items:center; gap:8px; }
+.check input{
+  width:18px; height:18px; margin:0;
+  transform: translateY(1px); /* visual nudge so box sits exactly midline next to text */
+}
+@media (max-width: 900px){
+  .check{ gap:8px }
+}
+
+/* Normalize button/link typography so sizes match */
+.btn{ font-size: var(--fs-md); line-height: 1.2; display:inline-flex; align-items:center; gap:8px }
+button.btn, a.btn{ font-size: inherit; font-weight: 500 }
+.filters .btn{ font-size: var(--fs-md) }
+
+
+/* Keep logo (right) and nav (left) with consistent edge padding */
+.header .container{ padding: 10px 24px; }
+
+
+/* Center the 'in-stock' checkbox exactly with text (Admin + Filters) */
+.check{ display:inline-flex; align-items:center; gap:8px; line-height: 1; }
+.check input{ width:18px; height:18px; margin:0; transform: translateY(-1px); }
+.filters .check, .form .check{ display:inline-flex; align-items:center }
+
+/* Fine-tune checkbox vertical centering next to text */
+.check input{ transform: translateY(2px); }
+
+
+/* Admin toolbar controls (above products) */
+.toolbar input, .toolbar select{
+  height: 42px;
+  padding: 8px 12px;
+  border: 1px solid var(--input-border);
+  border-radius: 12px;
+  background: var(--input-bg);
+  color: var(--input-text);
+  transition: box-shadow .18s ease, border-color .18s ease;
+}
+.toolbar input::placeholder{ color: var(--muted) }
+.toolbar input:focus, .toolbar select:focus{
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(37,99,235,.15);
+}
+/* Make select look consistent */
+.toolbar select{ appearance:none; -webkit-appearance:none }
+
+
+/* Alerts */
+.alert{ margin-top:10px; padding:10px 12px; border-radius:10px; border:1px solid var(--border); background:var(--card); }
+.alert.info{ border-color:#c7d2fe; background:#eef2ff; color:#1e3a8a }
+.alert.success{ border-color:#86efac; background:#ecfdf5; color:#065f46 }
+.alert.error{ border-color:#fecaca; background:#fef2f2; color:#991b1b }
+[data-theme="dark"] .alert.info{ border-color:#1e3a8a; background:#0b1220; color:#93c5fd }
+[data-theme="dark"] .alert.success{ border-color:#14532d; background:#052e1b; color:#86efac }
+[data-theme="dark"] .alert.error{ border-color:#7f1d1d; background:#2b0b0b; color:#fecaca }
