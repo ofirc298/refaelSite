@@ -4,15 +4,17 @@ import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { fetchJSON, normalizeImage } from '../lib/api'
 
-export default function Catalog() {
-  const [items, setItems] = useState([])
-  const [cats, setCats] = useState([])
+export default function Catalog({ initialItems = [], initialCats = [] }) {
+  const [items, setItems] = useState(initialItems)
+  const [cats, setCats] = useState(initialCats)
   const [filter, setFilter] = useState({ q: '', category: '', min: '', max: '', sort: 'price_asc' })
   const [msg, setMsg] = useState(null)
 
   useEffect(() => {
+    let abort = false;
     (async () => {
       try {
+        if ((initialItems && initialItems.length) || (initialCats && initialCats.length)) return;
         const [{ items: prods }, catsResp] = await Promise.all([
           fetchJSON('/products'),
           fetchJSON('/products/categories').catch(() => ({ categories: [] }))
@@ -23,6 +25,7 @@ export default function Catalog() {
         setCats(uniq)
       } catch { setMsg('שגיאה בטעינת מוצרים') }
     })()
+    return () => { abort = true }
   }, [])
 
   const view = useMemo(() => {
