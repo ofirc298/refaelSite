@@ -1,6 +1,6 @@
 import './styles.css'
 
-export const metadata = { title: 'REFAEL', description: 'Catalog' }
+export const metadata = { title: 'RAFCO', description: 'Catalog' }
 
 export default function RootLayout({ children }){
   return (
@@ -8,7 +8,7 @@ export default function RootLayout({ children }){
       <body>
         <header className="header">
           <div className="container nav">
-            <a href="/catalog" className="brand" title="דף מוצרים">REFAEL</a>
+            <a href="/catalog" className="brand" title="דף מוצרים">RAFCO</a>
             <nav style={{display:'flex', gap:8}}>
               <a href="/catalog">מוצרים</a>
               <a href="/checkout">עגלה</a>
@@ -16,7 +16,7 @@ export default function RootLayout({ children }){
           </div>
         </header>
         <main className="container">{children}</main>
-        <footer className="footer">REFAEL ©</footer>
+        <footer className="footer">RAFCO ©</footer>
       </body>
     </html>
   )
